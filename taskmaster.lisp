@@ -416,7 +416,10 @@ is set up via PROCESS-REQUEST."
 (defun client-as-string (socket)
   "A helper function which returns the client's address and port as a
    string and tries to act robustly in the presence of network problems."
-  #-:lispworks
+  #+(and (not lispworks) (or win32 windows))
+  (let ((addr (fsocket:socket-peer socket)))
+    (fsocket:sockaddr-string addr))
+  #+(and (not lispworks) (not (or win32 windows)))
   (let ((address (usocket:get-peer-address socket))
         (port (usocket:get-peer-port socket)))
     (when (and address port)

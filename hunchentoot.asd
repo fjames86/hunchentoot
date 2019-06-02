@@ -46,7 +46,10 @@
                :cl-fad
                :cl-ppcre
                :flexi-streams
-               #-(or :lispworks :hunchentoot-no-ssl) :cl+ssl
+	       #+(and (or (not :lispworks) (not :hunchentoot-no-ssl))
+		      (or win32 windows)) :schannel
+	       #+(and (or (not :lispworks) (not :hunchentoot-no-ssl))
+		      (not (or win32 windows))) :cl+ssl			     
                :md5
                :alexandria
                :rfc2388

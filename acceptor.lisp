@@ -326,7 +326,7 @@ they're using secure connections - see the SSL-ACCEPTOR class."))
         (condition-variable-wait (acceptor-shutdown-queue acceptor)
                                  (acceptor-shutdown-lock acceptor)))))
   (shutdown (acceptor-taskmaster acceptor))
-  #-lispworks
+  #+(and (not lispworks) (not (or win32 windows)))
   (usocket:socket-close (acceptor-listen-socket acceptor))
   #-lispworks
   (setf (acceptor-listen-socket acceptor) nil)
@@ -334,7 +334,18 @@ they're using secure connections - see the SSL-ACCEPTOR class."))
   (mp:process-kill (acceptor-process acceptor))
   acceptor)
 
-#-lispworks
+#+(and (not lispworks) (or win32 windows)) 
+(defun wake-acceptor-for-shutdown (acceptor)
+  "Creates a dummy connection to the acceptor, waking ACCEPT-CONNECTIONS while it is waiting.
+This is supposed to force a check of ACCEPTOR-SHUTDOWN-P."
+  (handler-case
+      (let ((addr (fsocket:socket-name (acceptor-listen-socket acceptor))))
+	(fsocket:with-tcp-connection (c addr)
+	  nil))
+    (error (e)
+      (acceptor-log-message acceptor :error "Wake-for-shutdown connect failed: ~A" e))))
+
+#+(and (not lispworks) (not (or win32 windows)))
 (defun wake-acceptor-for-shutdown (acceptor)
   "Creates a dummy connection to the acceptor, waking ACCEPT-CONNECTIONS while it is waiting.
 This is supposed to force a check of ACCEPTOR-SHUTDOWN-P."
@@ -512,8 +523,7 @@ destination determined by (ACCEPTOR-ACCESS-LOG-DESTINATION ACCEPTOR)
 Apache log analysis tools.)"
 
   (with-log-stream (stream (acceptor-access-log-destination acceptor) *access-log-lock*)
-    (format stream "~:[-~@[ (~A)~]~;~:*~A~@[ (~A)~]~] ~:[-~;~:*~A~] [~A] \"~A ~A~@[?~A~] ~
-                    ~A\" ~D ~:[-~;~:*~D~] \"~:[-~;~:*~A~]\" \"~:[-~;~:*~A~]\"~%"
+    (format stream "~:[-~@[ (~A)~]~;~:*~A~@[ (~A)~]~] ~:[-~;~:*~A~] [~A] \"~A ~A~@[?~A~] ~A\" ~D ~:[-~;~:*~D~] \"~:[-~;~:*~A~]\" \"~:[-~;~:*~A~]\"~%"
             (remote-addr*)
             (header-in* :x-forwarded-for)
             (authorization)
@@ -558,7 +568,23 @@ catches during request processing."
 
 ;; usocket implementation
 
-#-:lispworks
+#+(and (not lispworks) (or win32 windows))
+(defmethod start-listening ((acceptor acceptor))
+  (when (acceptor-listen-socket acceptor)
+    (hunchentoot-error "acceptor ~A is already listening" acceptor))
+
+  (let ((fd (fsocket:open-socket :type :stream)))
+    (handler-bind ((error (lambda (e)
+			    (declare (ignore e))
+			    (fsocket:close-socket fd))))
+      (fsocket:socket-bind fd (fsocket:sockaddr-in nil (acceptor-port acceptor)))
+      (fsocket:socket-listen fd))
+
+    (setf (acceptor-listen-socket acceptor) fd))
+  
+  (values))
+
+#+(and (not lispworks) (not (or win32 windows)))
 (defmethod start-listening ((acceptor acceptor))
   (when (acceptor-listen-socket acceptor)
     (hunchentoot-error "acceptor ~A is already listening" acceptor))
@@ -571,12 +597,35 @@ catches during request processing."
                                :element-type '(unsigned-byte 8)))
   (values))
 
-#-:lispworks
+#+(and (not lispworks) (or win32 windows))
+(defmethod start-listening :after ((acceptor acceptor))
+  (when (zerop (acceptor-port acceptor))
+    (let ((fd (acceptor-listen-socket acceptor)))
+      (setf (slot-value acceptor 'port) (fsocket:sockaddr-in-port (fsocket:socket-name fd))))))
+
+#+(and (not lispworks) (not (or win32 windows)))
 (defmethod start-listening :after ((acceptor acceptor))
   (when (zerop (acceptor-port acceptor))
     (setf (slot-value acceptor 'port) (usocket:get-local-port (acceptor-listen-socket acceptor)))))
 
-#-:lispworks
+#+(and (not lispworks) (or win32 windows))
+(defmethod accept-connections ((acceptor acceptor))
+  (let ((fd (acceptor-listen-socket acceptor)))
+    (fsocket:with-poll (pc)
+      (fsocket:poll-register pc (make-instance 'fsocket:pollfd :fd fd :events (fsocket:poll-events :pollin)))
+      (unwind-protect 
+	   (loop
+	      (with-lock-held ((acceptor-shutdown-lock acceptor))
+		(when (acceptor-shutdown-p acceptor)
+		  (return)))
+	      (fsocket:doevents (pfd event) (fsocket:poll pc :timeout (acceptor-read-timeout acceptor))
+		(case event
+		  ((:pollin :pollout)
+		   (let ((cfd (fsocket:socket-accept fd)))
+		     (handle-incoming-connection (acceptor-taskmaster acceptor) cfd))))))
+      (fsocket:close-socket fd)))))
+
+#+(and (not lispworks) (not (or win32 windows)))
 (defmethod accept-connections ((acceptor acceptor))
   (usocket:with-server-socket (listener (acceptor-listen-socket acceptor))
     (loop

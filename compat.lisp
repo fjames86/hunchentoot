@@ -28,22 +28,79 @@
 
 (in-package :hunchentoot)
 
+#+(or win32 windows)
+(defun get-peer-address-and-port (socket)
+  "Returns the peer address and port of the socket SOCKET as two
+values.  The address is returned as a string in dotted IP address
+notation, resp. IPv6 notation."
+  (let ((addr (fsocket:socket-peer socket)))
+    (values (let ((a (fsocket:sockaddr-in-addr addr)))
+	      (format nil "~A.~A.~A.~A"
+		      (aref a 0) (aref a 1) (aref a 2) (aref a 3)))
+	    (fsocket:sockaddr-in-port addr))))
+
+#+(or win32 windows)
+(defun get-local-address-and-port (socket)
+  "Returns the local address and port of the socket SOCKET as two
+values.  The address is returned as a string in dotted IP address
+notation, resp. IPv6 notation."
+  (let ((addr (fsocket:socket-name socket)))
+    (values (let ((a (fsocket:sockaddr-in-addr addr)))
+	      (format nil "~A.~A.~A.~A"
+		      (aref a 0) (aref a 1) (aref a 2) (aref a 3)))
+	    (fsocket:sockaddr-in-port addr))))
+
+#+(or win32 windows)
+(progn
+  (defclass ononblock-tcp-stream (fsocket:tcp-stream)
+    ())
+  (defmethod trivial-gray-streams:stream-read-sequence ((stream ononblock-tcp-stream) seq start end &key)
+    "Returns the index of last byte read."
+    (declare (fixnum start end))
+    (do ((done nil))
+	(done done)
+      (catch 'ewouldblock 
+	(handler-bind 
+	    (#+(or win32 windows)
+	       (fsocket::win-error 
+		(lambda (e)
+		  (cond
+		    ((= (fsocket::win-error-code e) fsocket::+wsa-error-wouldblock+)
+		     (throw 'ewouldblock nil))))))
+	  (let ((n (fsocket:socket-recv (fsocket::tcp-stream-fd stream) seq :start start :end end)))
+	    (cond
+	      ((> n 0)
+	       (setf done (+ start n)))
+	      (t 
+	       (setf done start)))))))))
+
+
+#+(or win32 windows)
+(defun make-socket-stream (socket acceptor)
+  "Returns a stream for the socket SOCKET.  The ACCEPTOR argument is
+ignored."
+  (declare (ignore acceptor))
+  (make-instance 'ononblock-tcp-stream :fd socket))
+
+#-(or win32 windows)
 (defun get-peer-address-and-port (socket)
   "Returns the peer address and port of the socket SOCKET as two
 values.  The address is returned as a string in dotted IP address
 notation, resp. IPv6 notation."
   (multiple-value-bind (address port) (usocket:get-peer-name socket)
-    (values (usocket:host-to-hostname address)
+    (values (usocket::host-to-hostname address)
             port)))
 
+#-(or win32 windows)
 (defun get-local-address-and-port (socket)
   "Returns the local address and port of the socket SOCKET as two
 values.  The address is returned as a string in dotted IP address
 notation, resp. IPv6 notation."
   (multiple-value-bind (address port) (usocket:get-local-name socket)
-    (values (usocket:host-to-hostname address)
+    (values (usocket::host-to-hostname address)
             port)))
 
+#-(or win32 windows)
 (defun make-socket-stream (socket acceptor)
   "Returns a stream for the socket SOCKET.  The ACCEPTOR argument is
 ignored."

@@ -80,6 +80,9 @@ The default port for SSL-ACCEPTOR instances is 443 instead of 80"))
 (defmethod initialize-connection-stream ((acceptor ssl-acceptor) stream)
   ;; attach SSL to the stream if necessary
   (call-next-method acceptor
+		    #+(or win32 windows)
+		    (schannel:make-server-stream stream)
+		    #-(or win32 windows)
                     (cl+ssl:make-ssl-server-stream stream
                                                    :certificate (acceptor-ssl-certificate-file acceptor)
                                                    :key (acceptor-ssl-privatekey-file acceptor)

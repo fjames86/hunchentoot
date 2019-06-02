@@ -39,10 +39,18 @@ error will be signaled.  READ-TIMEOUT and WRITE-TIMEOUT may be NIL,
 which means that the corresponding socket timeout value will not be
 set."
   (declare (ignorable usocket read-timeout write-timeout))
+
   ;; add other Lisps here if necessary
   #+(or :sbcl :cmu :abcl)
   (unless (eql read-timeout write-timeout)
     (parameter-error "Read and write timeouts for socket must be equal."))
+
+  #+(or win32 windows)
+  (progn
+    (setf (fsocket:socket-option usocket :socket :rcvtimeo)
+	  (floor (* read-timeout 1000)))
+    (return-from set-timeouts (values)))
+  
   #+:clisp
   (when read-timeout
     (socket:socket-options (usocket:socket usocket) :SO-RCVTIMEO read-timeout))
