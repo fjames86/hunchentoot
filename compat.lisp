@@ -50,6 +50,8 @@ notation, resp. IPv6 notation."
 		      (aref a 0) (aref a 1) (aref a 2) (aref a 3)))
 	    (fsocket:sockaddr-in-port addr))))
 
+;; Dirty hack incoming: we are given sockets set to ONONBLOCK but schannel doesn't support that...
+;; Hence we spin while error status=EWOULDBLOCK until we have actually read some data. 
 #+(or win32 windows)
 (progn
   (defclass ononblock-tcp-stream (fsocket:tcp-stream)
@@ -72,7 +74,26 @@ notation, resp. IPv6 notation."
 	      ((> n 0)
 	       (setf done (+ start n)))
 	      (t 
-	       (setf done start)))))))))
+	       (setf done start))))))))
+  (defmethod trivial-gray-streams:stream-read-byte ((stream ononblock-tcp-stream))
+    (do ((seq (make-array 1 :element-type '(unsigned-byte 8)))
+	 (done nil))
+	(done done)
+      (catch 'ewouldblock 
+	(handler-bind 
+	    (#+(or win32 windows)
+	       (fsocket::win-error 
+		(lambda (e)
+		  (cond
+		    ((= (fsocket::win-error-code e) fsocket::+wsa-error-wouldblock+)
+		     (throw 'ewouldblock nil))))))
+	  (let ((n (fsocket:socket-recv (fsocket::tcp-stream-fd stream) seq)))
+	    (cond
+	      ((> n 0)
+	       (setf done (aref seq 0)))
+	      (t
+	       (setf done :eof)))))))))
+
 
 
 #+(or win32 windows)

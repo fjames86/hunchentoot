@@ -45,51 +45,56 @@ set."
   (unless (eql read-timeout write-timeout)
     (parameter-error "Read and write timeouts for socket must be equal."))
 
-  #+(or win32 windows)
+  #+(and (not lispworks) (or win32 windows))
   (progn
     (setf (fsocket:socket-option usocket :socket :rcvtimeo)
 	  (floor (* read-timeout 1000)))
     (return-from set-timeouts (values)))
   
-  #+:clisp
-  (when read-timeout
-    (socket:socket-options (usocket:socket usocket) :SO-RCVTIMEO read-timeout))
-  #+:clisp
-  (when write-timeout
-    (socket:socket-options (usocket:socket usocket) :SO-SNDTIMEO write-timeout))
-  #+:ecl
-  (when read-timeout
-    (setf (sb-bsd-sockets:sockopt-receive-timeout (usocket:socket usocket))
-	  read-timeout))
-  #+:ecl
-  (when write-timeout
-    (setf (sb-bsd-sockets:sockopt-send-timeout (usocket:socket usocket))
-	  write-timeout))
-  #+:openmcl
-  (when read-timeout
-    (setf (ccl:stream-input-timeout (usocket:socket usocket))
-          read-timeout))
-  #+:openmcl
-  (when write-timeout
-    (setf (ccl:stream-output-timeout (usocket:socket usocket))
-          write-timeout))
-  #+:sbcl
-  (when read-timeout
-    (setf (sb-impl::fd-stream-timeout (usocket:socket-stream usocket))
-          (coerce read-timeout 'single-float)))
-  #+:cmu
-  (setf (lisp::fd-stream-timeout (usocket:socket-stream usocket))
-        (coerce read-timeout 'integer))
-  #+:abcl
-  (when read-timeout
-    (java:jcall (java:jmethod "java.net.Socket" "setSoTimeout"  "int")
-                (usocket:socket usocket)
-                (* 1000 read-timeout)))
-  #+:abcl
-  (when write-timeout
-    (warn "Unimplemented."))
-  #+:clasp
-  (warn "set-timeouts unimplemented.")
-  #-(or :clisp :allegro :openmcl :sbcl :lispworks :cmu :ecl :abcl :clasp)
-  (not-implemented 'set-timeouts))
+  #-(or win32 windows)
+  (progn  
+    #+:clisp
+    (when read-timeout
+      (socket:socket-options (usocket:socket usocket) :SO-RCVTIMEO read-timeout))
+    #+:clisp
+    (when write-timeout
+      (socket:socket-options (usocket:socket usocket) :SO-SNDTIMEO write-timeout))
+    #+:ecl
+    (when read-timeout
+      (setf (sb-bsd-sockets:sockopt-receive-timeout (usocket:socket usocket))
+	    read-timeout))
+    #+:ecl
+    (when write-timeout
+      (setf (sb-bsd-sockets:sockopt-send-timeout (usocket:socket usocket))
+	    write-timeout))
+    #+:openmcl
+    (when read-timeout
+      (setf (ccl:stream-input-timeout (usocket:socket usocket))
+            read-timeout))
+    #+:openmcl
+    (when write-timeout
+      (setf (ccl:stream-output-timeout (usocket:socket usocket))
+            write-timeout))
+    #+:sbcl
+    (when read-timeout
+      (setf (sb-impl::fd-stream-timeout (usocket:socket-stream usocket))
+            (coerce read-timeout 'single-float)))
+    #+:cmu
+    (setf (lisp::fd-stream-timeout (usocket:socket-stream usocket))
+          (coerce read-timeout 'integer))
+    #+:abcl
+    (when read-timeout
+      (java:jcall (java:jmethod "java.net.Socket" "setSoTimeout"  "int")
+                  (usocket:socket usocket)
+                  (* 1000 read-timeout)))
+    #+:abcl
+    (when write-timeout
+      (warn "Unimplemented."))
+    #+:clasp
+    (warn "set-timeouts unimplemented.")
+    
+    #-(or :clisp :allegro :openmcl :sbcl :lispworks :cmu :ecl :abcl :clasp)
+    (not-implemented 'set-timeouts)))
+
+
 

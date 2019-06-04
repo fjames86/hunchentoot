@@ -69,6 +69,7 @@ The default port for SSL-ACCEPTOR instances is 443 instead of 80"))
     (setf (slot-value acceptor 'ssl-privatekey-file)
           (acceptor-ssl-certificate-file acceptor)))
   ;; OpenSSL doesn't know much about Lisp pathnames...
+  #+(and (not lispworks) (not (or win32 windows)))
   (setf (slot-value acceptor 'ssl-privatekey-file)
         (namestring (truename (acceptor-ssl-privatekey-file acceptor)))
         (slot-value acceptor 'ssl-certificate-file)
@@ -81,7 +82,8 @@ The default port for SSL-ACCEPTOR instances is 443 instead of 80"))
   ;; attach SSL to the stream if necessary
   (call-next-method acceptor
 		    #+(or win32 windows)
-		    (schannel:make-server-stream stream)
+		    (let ((certname (acceptor-ssl-certificate-file acceptor)))
+		      (schannel:make-server-stream stream :hcert certname))
 		    #-(or win32 windows)
                     (cl+ssl:make-ssl-server-stream stream
                                                    :certificate (acceptor-ssl-certificate-file acceptor)

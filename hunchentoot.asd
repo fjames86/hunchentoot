@@ -54,7 +54,8 @@
                :alexandria
                :rfc2388
                :trivial-backtrace
-               #-:lispworks :usocket
+	       #+(and (not lispworks) (or win32 windows)) :fsocket
+	       #+(and (not lispworks) (not (or win32 windows))) :usocket
                #-:lispworks :bordeaux-threads)
   :components ((:module url-rewrite
                 :serial t
