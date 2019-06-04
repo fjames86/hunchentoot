@@ -32,3 +32,20 @@ can basically do with it whatever you want.
 Complete documentation for Hunchentoot including details about how to
 install it can be found in the `docs` directory or at the [project
 website](https://edicl.github.io/hunchentoot/).
+
+------------------
+
+## Frank's SChannel extension
+On windows this uses Schannel instead of openssl (cl+ssl).
+
+Assuming you have setup and installed a certificate at location "MY/127.0.0.1" you should be able
+to get something working like this:
+
+```
+(defparameter *acc* (make-instance 'hunchentoot:easy-ssl-acceptor :port 8000 :ssl-certificate-file "MY/127.0.0.1"))
+(hunchentoot:start *acc*)
+```
+
+If the root certificate is also installed then browsers (chrome has been tested) can connect and it all works.
+
+

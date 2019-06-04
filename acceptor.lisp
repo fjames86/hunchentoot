@@ -343,7 +343,9 @@ This is supposed to force a check of ACCEPTOR-SHUTDOWN-P."
 	(fsocket:with-tcp-connection (c addr)
 	  nil))
     (error (e)
-      (acceptor-log-message acceptor :error "Wake-for-shutdown connect failed: ~A" e))))
+      (acceptor-log-message acceptor :error "Wake-for-shutdown connect failed: addr=~A ~A"
+			    (fsocket:sockaddr-string (fsocket:socket-name (acceptor-listen-socket acceptor)
+									  e))))))
 
 #+(and (not lispworks) (not (or win32 windows)))
 (defun wake-acceptor-for-shutdown (acceptor)
