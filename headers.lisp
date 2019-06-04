@@ -225,7 +225,7 @@ not want to wait for another request any longer."
       (let ((*current-error-message* "While reading initial request line:"))
         (with-mapped-conditions ()
           (read-line* stream)))
-    ((or end-of-file #-:lispworks usocket:timeout-error) ())))
+    ((or end-of-file #+(and (not lispworks) (not (or win32 windows))) usocket:timeout-error) ())))
 
 (defun send-bad-request-response (stream &optional additional-info)
   "Send a ``Bad Request'' response to the client."

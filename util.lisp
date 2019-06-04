@@ -359,7 +359,9 @@ ACCEPTOR-SSL-P."
   signalled as usocket conditions.  For Lispworks, no mapping is performed."
   #+:lispworks
   `(progn ,@body)
-  #-:lispworks
+  #+(and (not lispworks) (or win32 windows))
+  `(progn ,@body)
+  #+(and (not lispworks) (not (or win32 windows)))
   `(usocket:with-mapped-conditions ()
     ,@body))
 
