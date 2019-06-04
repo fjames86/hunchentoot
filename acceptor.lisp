@@ -340,12 +340,14 @@ they're using secure connections - see the SSL-ACCEPTOR class."))
 This is supposed to force a check of ACCEPTOR-SHUTDOWN-P."
   (handler-case
       (let ((addr (fsocket:socket-name (acceptor-listen-socket acceptor))))
+	(when (equalp (fsocket:sockaddr-in-addr addr) #(0 0 0 0))
+	  (setf (fsocket:sockaddr-in-addr addr) #(127 0 0 1)))
 	(fsocket:with-tcp-connection (c addr)
 	  nil))
     (error (e)
       (acceptor-log-message acceptor :error "Wake-for-shutdown connect failed: addr=~A ~A"
-			    (fsocket:sockaddr-string (fsocket:socket-name (acceptor-listen-socket acceptor)
-									  e))))))
+			    (ignore-errors (fsocket:sockaddr-string (fsocket:socket-name (acceptor-listen-socket acceptor))))
+			    e))))
 
 #+(and (not lispworks) (not (or win32 windows)))
 (defun wake-acceptor-for-shutdown (acceptor)
