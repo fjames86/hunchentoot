@@ -83,7 +83,7 @@ The default port for SSL-ACCEPTOR instances is 443 instead of 80"))
   (call-next-method acceptor
 		    #+(or win32 windows)
 		    (let ((certname (acceptor-ssl-certificate-file acceptor)))
-		      (schannel:make-server-stream stream :hcert certname))
+		      (schannel:make-server-stream stream :certificate certname))
 		    #-(or win32 windows)
                     (cl+ssl:make-ssl-server-stream stream
                                                    :certificate (acceptor-ssl-certificate-file acceptor)
