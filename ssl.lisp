@@ -123,7 +123,12 @@ stream."
                                             :privatekey-file (acceptor-ssl-privatekey-file acceptor)
                                             :privatekey-password (acceptor-ssl-privatekey-password acceptor))))
 
-
-#-:lispworks
+#+(and (not lispwords) (not (or win32 windows)))
 (defun get-peer-ssl-certificate ()
   (cl+ssl:ssl-stream-x509-certificate *hunchentoot-stream*))
+
+#+(and (not lispwords) (or win32 windows))
+(defun get-peer-ssl-certificate ()
+  (error "Not implemented for win32 schannel"))
+
+
