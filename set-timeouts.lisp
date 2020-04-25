@@ -41,7 +41,7 @@ set."
   (declare (ignorable usocket read-timeout write-timeout))
 
   ;; add other Lisps here if necessary
-  #+(or :sbcl :cmu :abcl)
+  #+(or :sbcl :cmu :abcl :mezzano)
   (unless (eql read-timeout write-timeout)
     (parameter-error "Read and write timeouts for socket must be equal."))
 
@@ -92,9 +92,11 @@ set."
       (warn "Unimplemented."))
     #+:clasp
     (warn "set-timeouts unimplemented.")
+
+    #+:mezzano
+    (let ((connection (mezzano.network.tcp:tcp-stream-connection (usocket:socket usocket))))
+      (setf (mezzano.network.tcp:tcp-connection-timeout connection) read-timeout))
     
-    #-(or :clisp :allegro :openmcl :sbcl :lispworks :cmu :ecl :abcl :clasp)
+    #-(or :clisp :allegro :openmcl :sbcl :lispworks :cmu :ecl :abcl :clasp :mezzano)
     (not-implemented 'set-timeouts)))
-
-
 
